@@ -696,7 +696,7 @@ void COPROC_ATI::write_xml(MIOFILE& f, bool scheduler_rpc) {
     }
         
     f.printf("</coproc_ati>\n");
-};
+}
 #endif
 
 void COPROC_ATI::clear() {
@@ -905,7 +905,7 @@ void COPROC_INTEL::write_xml(MIOFILE& f, bool scheduler_rpc) {
     }
         
     f.printf("</coproc_intel_gpu>\n");
-};
+}
 #endif
 
 void COPROC_INTEL::clear() {
