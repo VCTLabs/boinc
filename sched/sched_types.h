@@ -20,6 +20,8 @@
 
 #include <cstdio>
 #include <vector>
+// QCN here include line
+#include "../../qcn/server/trigger/qcn_types.h"
 
 #include "boinc_db.h"
 #include "common_defs.h"
@@ -533,6 +535,9 @@ struct SCHEDULER_REPLY {
 
     SCHEDULER_REPLY();
     ~SCHEDULER_REPLY(){};
+// QCN here -- add the bool for qcn host IP
+    int write(FILE*, SCHEDULER_REQUEST&, bool, DB_QCN_HOST_IPADDR&);
+// QCN end
     int write(FILE*, SCHEDULER_REQUEST&);
     void insert_app_unique(APP&);
     void insert_app_version_unique(APP_VERSION&);

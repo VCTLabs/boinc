@@ -132,6 +132,15 @@ int SCHED_CONFIG::parse(FILE* f) {
         if (xp.parse_str("replica_db_user", replica_db_user, sizeof(replica_db_user))) continue;
         if (xp.parse_str("replica_db_passwd", replica_db_passwd, sizeof(replica_db_passwd))) continue;
         if (xp.parse_str("replica_db_host", replica_db_host, sizeof(replica_db_host))) continue;
+// QCN HERE -- add db fields for trigmem
+#ifdef _USING_TRIGMEM
+        if (xp.parse_str("trigmem_db_name", trigmem_db_name, sizeof(trigmem_db_name))) continue;
+        if (xp.parse_str("trigmem_db_user", trigmem_db_user, sizeof(trigmem_db_user))) continue;
+        if (xp.parse_str("trigmem_db_passwd", trigmem_db_passwd, sizeof(trigmem_db_passwd))) continue;
+        if (xp.parse_str("trigmem_db_host", trigmem_db_host, sizeof(trigmem_db_host))) continue;
+        if (xp.parse_int("trigmem_db_port", trigmem_db_port)) continue;
+#endif
+// end QCN
         if (xp.parse_str("project_dir", project_dir, sizeof(project_dir))) continue;
         if (xp.parse_int("shmem_key", shmem_key)) continue;
         if (xp.parse_str("key_dir", key_dir, sizeof(key_dir))) continue;

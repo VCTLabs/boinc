@@ -51,6 +51,15 @@ struct SCHED_CONFIG {
     char replica_db_user[256];
     char replica_db_passwd[256];
     char replica_db_host[256];
+// QCN HERE  add 4 fields for trigmem databse info
+#ifdef _USING_TRIGMEM
+    char trigmem_db_name[256];
+    char trigmem_db_user[256];
+    char trigmem_db_passwd[256];
+    char trigmem_db_host[256];
+    int trigmem_db_port;
+#endif
+// QCN end
     int shmem_key;
     char project_dir[256];
     char key_dir[256];

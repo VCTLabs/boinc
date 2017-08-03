@@ -52,7 +52,7 @@ static const int PROCESS_IDLE_PRIORITY = 19;
 static const int PROCESS_MEDIUM_PRIORITY = 10;
 static const int PROCESS_NORMAL_PRIORITY = 0;
 static const int PROCESS_ABOVE_NORMAL_PRIORITY = -10;
-static const int PROCESS_HIGH_PRIORITY = -15;
+static const int PROCESS_HIGH_PRIORITY = -15;  // QCN HERE - add a high priority (obsolete, no change)
 static const int PROCESS_REALTIME_PRIORITY = -20;
 extern double linux_cpu_time(int pid);
 #endif

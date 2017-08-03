@@ -4,7 +4,8 @@
 include $(top_srcdir)/Makefile.incl
 
 AM_CPPFLAGS += $(MYSQL_CFLAGS) $(PTHREAD_CFLAGS)
-AM_LDFLAGS += -static
+# QCN add libcurl for GeoIP lookup
+AM_LDFLAGS += -static -lcurl
 
 if ENABLE_LIBRARIES
 
@@ -155,7 +156,9 @@ noinst_HEADERS = \
 EXTRA_DIST = \
     start
 
+# QCN added the qcn_trigger file below
 cgi_sources = \
+    ../../qcn/server/trigger/qcn_trigger.cpp \
 	credit.cpp \
     edf_sim.cpp \
     handle_request.cpp \

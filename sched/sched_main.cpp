@@ -78,6 +78,11 @@ SCHED_SHMEM* ssp = 0;
 bool batch = false;
 bool mark_jobs_done = false;
 bool all_apps_use_hr;
+// QCN HERE -- trigmem db connection
+#ifdef _USING_TRIGMEM
+  DB_CONN trigmem_db;
+#endif
+// end CMC
 
 static void usage(char* p) {
     fprintf(stderr,
@@ -131,7 +136,9 @@ void debug_sched(const char *trigger) {
         "Found %s, so writing %s\n", trigger, tmpfilename
     );
 
+/* QCN HERE -- COMMENT OUT
     g_reply->write(fp, *g_request);
+*/
     fclose(fp);
 
     sprintf(tmpfilename,
@@ -180,14 +187,23 @@ int open_database() {
 
     if (db_opened) {
         retval = boinc_db.ping();
+// QCN HERE -- test our trigmem ping
+#ifdef _USING_TRIGMEM
+        if (!retval) retval = trigmem_db.ping();
+#endif
+// end QCN
         if (retval) {
             log_messages.printf(MSG_CRITICAL,
                 "lost connection to database - trying to reconnect\n"
             );
-        } else {
+        }
+/* QCN here
+         else {
             return 0;
         }
-    }
+// QCN end bypass reutrn
+*/
+    }  // end QCN
 
     retval = boinc_db.open(
         config.db_name, config.db_host, config.db_user, config.db_passwd
@@ -196,6 +212,19 @@ int open_database() {
         log_messages.printf(MSG_CRITICAL, "can't open database\n");
         return retval;
     }
+
+// QCN here -- open the trigmem db connection
+#ifdef _USING_TRIGMEM
+    retval = trigmem_db.open(
+        config.trigmem_db_name, config.trigmem_db_host, config.trigmem_db_user, config.trigmem_db_passwd
+    );
+    if (retval) {
+        log_messages.printf(MSG_CRITICAL, "can't open trigmem database\n");
+        return retval;
+    }
+#endif
+// end QCN
+
     db_opened = true;
     return 0;
 }
@@ -207,6 +236,11 @@ int open_database() {
 void sigterm_handler(int /*signo*/) {
     if (db_opened) {
         boinc_db.close();
+// QCN here
+#ifdef _USING_TRIGMEM
+        trigmem_db.close();
+#endif
+// end QCN
     }
     log_messages.printf(MSG_CRITICAL,
         "Caught SIGTERM (sent by Apache); exiting\n"
@@ -675,6 +709,11 @@ done:
 #endif
     if (db_opened) {
         boinc_db.close();
+// QCN here
+#ifdef _USING_TRIGMEM
+        trigmem_db.close();
+#endif
+// end QCN
     }
 }
 #endif

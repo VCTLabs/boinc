@@ -64,6 +64,9 @@
 #include "sched_customize.h"
 #include "time_stats_log.h"
 
+// QCN -- FIXME: another include hack
+#include "../../qcn/server/trigger/qcn_trigger.h"
+// QCN end section
 
 // find the user's most recently-created host with given various characteristics
 //
@@ -1044,7 +1047,8 @@ inline static const char* get_remote_addr() {
     return r ? r : "?.?.?.?";
 }
 
-void handle_msgs_from_host() {
+// QCN here -- add host IP argument
+void handle_msgs_from_host(DB_QCN_HOST_IPADDR& qhip) { // QCN mod line
     unsigned int i;
     DB_MSG_FROM_HOST mfh;
     int retval;
@@ -1062,7 +1066,28 @@ void handle_msgs_from_host() {
             "got msg from host; variety %s \n",
             mfh.variety
         );
-        retval = mfh.insert();
+    // QCN here -- begin handle triggers via handle_qcn_trigger
+        retval = 0;
+        int iVariety = -1;
+        if (!strcmp(mfh.variety, "trigger")) { // it's a trigger
+            iVariety = 0;
+        }
+        else if (!strcmp(mfh.variety, "ping") || !strcmp(mfh.variety, "quakelist") ) { // it's a ping
+            iVariety = 1;
+        }
+        else if (!strcmp(mfh.variety, "continual")) { // it's a continual trigger
+            iVariety = 2;
+        }
+
+        if (iVariety > -1 ) { // it's a trigger
+            retval = handle_qcn_trigger(&mfh, iVariety, qhip);
+        }
+        else {
+            // not a real trigger or quakelist trickle, insert into msg_from_host table as usual
+            retval = mfh.insert(); // not a trigger and not a quakelist, process as normal (probably a "nosensor" msg)
+        }
+//        retval = mfh.insert();
+// QCN here -- end block for mfh insert
         if (retval) {
             log_messages.printf(MSG_CRITICAL,
                 "[HOST#%d] message insert failed: %s\n",
@@ -1136,7 +1161,13 @@ static inline bool requesting_work() {
     return false;
 }
 
-void process_request(char* code_sign_key) {
+// QCN here -- add bool so we can bypass some things if it's a trigger trickle
+//void process_request(char* code_sign_key) {
+void process_request(
+    char* code_sign_key, bool bTrigger, DB_QCN_HOST_IPADDR& qhip
+) {
+//    SCHEDULER_REQUEST& sreq, SCHEDULER_REPLY& reply, char* code_sign_key, bool bTrigger
+// QCN end new declaration of process_request
     PLATFORM* platform;
     int retval;
     double last_rpc_time, x;
@@ -1407,8 +1438,7 @@ void process_request(char* code_sign_key) {
         }
     }
 
-
-    handle_msgs_from_host();
+    handle_msgs_from_host(qhip); // QCN mod line
     if (config.msg_to_host) {
         handle_msgs_to_host();
     }
@@ -1455,6 +1485,11 @@ void handle_request(FILE* fin, FILE* fout, char* code_sign_key) {
     SCHEDULER_REPLY sreply;
     char buf[1024];
 
+    // QCN here -- on trigger trickles, bypass trickle down's and quake/project_prefs etc
+    bool bTrigger = false;
+    DB_QCN_HOST_IPADDR qhip;
+    // QCN end
+
     g_request = &sreq;
     g_reply = &sreply;
     g_wreq = &sreply.wreq;
@@ -1469,7 +1504,33 @@ void handle_request(FILE* fin, FILE* fout, char* code_sign_key) {
     const char* p = sreq.parse(xp);
     double start_time = dtime();
     if (!p){
-        process_request(code_sign_key);
+       // QCN here -- sreq has been parsed, see if contains a trigger
+         //  loop through the msg_from_host vector and see that all entries are variety "trigger"
+         //  IFF all entries are "trigger" should we bypass (i.e. may be part of another msg)
+         unsigned int iTrigger = 0, iCount = 0;
+         for (iCount=0; iCount<sreq.msgs_from_host.size(); iCount++) {
+           if (!strcmp(sreq.msgs_from_host[iCount].variety, "trigger")
+             || !strcmp(sreq.msgs_from_host[iCount].variety, "continual"))  {
+              // this is a trigger so bump up our counter
+              iTrigger++;
+              // tack on the external IP address -- msg_text is a std::string
+           }
+           if (!strcmp(sreq.msgs_from_host[iCount].variety, "trigger")
+                || !strcmp(sreq.msgs_from_host[iCount].variety, "continual")
+                || !strcmp(sreq.msgs_from_host[iCount].variety, "ping")
+                || !strcmp(sreq.msgs_from_host[iCount].variety, "quakelist") ) {
+             // tack on external IP address if a trigger or quakelist (ping) trickle
+             sreq.msgs_from_host[iCount].msg_text += "<extip>";
+             sreq.msgs_from_host[iCount].msg_text += get_remote_addr();
+             sreq.msgs_from_host[iCount].msg_text += "</extip>\n";
+           }
+         }
+         // set a bool bTrigger which we can bypass big scheduler requests (e.g. work request & quake download)
+         bTrigger = (bool) (iTrigger > 0 && iTrigger == iCount); // note all trickles must be triggers, and must have 1 trickle at least!
+
+        process_request(code_sign_key, bTrigger, qhip);
+         // QCN end section
+       //  QCN end block handle_request/process_request
 
         if ((config.locality_scheduling || config.locality_scheduler_fraction) && !sreply.nucleus_only) {
             send_file_deletes();
@@ -1484,7 +1545,11 @@ void handle_request(FILE* fin, FILE* fout, char* code_sign_key) {
         log_user_messages();
     }
 
-    sreply.write(fout, sreq);
+  // QCN here -- next line to send a new param to SCHEDULER_REPLY::write e.g. to bypass quake list for project prefs etc
+     sreply.write(fout, sreq, bTrigger, qhip);
+     //sreply.write(fout, sreq);
+  // QCN end
+
     log_messages.printf(MSG_NORMAL,
         "Scheduler ran %.3f seconds\n", dtime()-start_time
     );
