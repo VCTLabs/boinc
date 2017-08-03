@@ -41,6 +41,16 @@
 
 extern DB_CONN boinc_db;
 
+#define strcpy2(x, y) \
+    { \
+        const char* z = y; \
+        if (!z) { \
+            x[0]=0; \
+        } else { \
+            strlcpy(x, z, sizeof(x)); \
+        } \
+    }
+
 struct TRANSITIONER_ITEM {
     DB_ID_TYPE id; // WARNING: this is the WU ID
     char name[256];
