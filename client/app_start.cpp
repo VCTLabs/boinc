@@ -746,7 +746,7 @@ int ACTIVE_TASK::start(bool test) {
     relative_to_absolute(slot_dir, slotdirpath);
     int prio_mask;
     if (cc_config.no_priority_change) {
-        prio_mask = 0;
+        prio_mask = 0;       // QCN here -- bump priority below (obsolete, no change)
     } else {
         prio_mask = get_priority(high_priority);
     }
@@ -906,7 +906,7 @@ int ACTIVE_TASK::start(bool test) {
     if (!cc_config.no_priority_change) {
         int priority = get_priority(high_priority);
         if (setpriority(PRIO_PROCESS, pid, priority)) {
-            perror("setpriority");
+            perror("setpriority");  // QCN here -- bump priority above (obsolete, no change)
         }
     }
 
@@ -1075,7 +1075,7 @@ int ACTIVE_TASK::start(bool test) {
 #if HAVE_SETPRIORITY
             int priority = get_priority(high_priority);
             if (setpriority(PRIO_PROCESS, 0, priority)) {
-                perror("setpriority");
+                perror("setpriority");  // QCN here -- bump priority above (obsolete, no change)
             }
 #endif
 #ifdef ANDROID
