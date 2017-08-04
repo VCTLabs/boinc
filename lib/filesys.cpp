@@ -559,7 +559,6 @@ int boinc_file_exists(const char* path) {
 #endif
 }
 
-#if 0
 // same, but doesn't traverse symlinks
 //
 int boinc_file_or_symlink_exists(const char* path) {
@@ -573,7 +572,6 @@ int boinc_file_or_symlink_exists(const char* path) {
     return true;
 #endif
 }
-#endif
 
 // returns zero on success, nonzero if didn't touch file
 //
