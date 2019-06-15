@@ -1,6 +1,14 @@
 # Which files and directories are safe to ignore
 #
 
+# Python compiled files
+*.pyc
+py/lib
+py/usr
+
+# Build/patch cruft
+*.orig
+
 # Visual Studio project files
 *.user
 *.ncb
