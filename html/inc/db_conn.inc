@@ -63,14 +63,18 @@ class DbConn {
     //
     function do_query($q) {
         global $generating_xml;
-        $q = str_replace('DBNAME', $this->db_name, $q);
-        //echo "query: $q<br>\n";
-        if (MYSQLI) {
+
+	//print "DO_Query is: $q<br>";
+
+	$q = str_replace('DBNAME', $this->db_name, $q);
+
+	if (MYSQLI) {
             $ret = $this->db_conn->query($q);
-        } else {
+	} else {
             $ret = mysql_query($q, $this->db_conn);
         }
-        if (!$ret) {
+
+	if (!$ret) {
             if (!$generating_xml) {
                 echo "Database Error<br>\n";
             }
@@ -79,7 +83,8 @@ class DbConn {
             //echo "</pre>query: $q\n";
             return null;
         }
-        return $ret;
+
+	return $ret;
     }
 
     // # rows affected by last query
@@ -90,25 +95,6 @@ class DbConn {
         } else {
             return mysql_affected_rows($this->db_conn);
         }
-    }
-
-    function get_list($table1, $table2, $joinfield1, $joinfield2, $classname, $fields, $where_clause, $order_clause, $limit) {
-        $query = "select $fields from DBNAME.$table1 a join DBNAME.$table2 b on a.$joinfield1=b.$joinfield2 where $where_clause order by $order_clause desc limit $limit";
-        $result = $this->do_query($query);
-        if (!$result) return null;
-        $x = array();
-        if (MYSQLI) {
-            while ($obj = $result->fetch_object($classname)) {
-                $x[] = $obj;
-            }
-            $result->free();
-        } else {
-            while ($obj = mysql_fetch_object($result, $classname)) {
-                $x[] = $obj;
-            }
-            mysql_free_result($result);
-        }
-        return $x;
     }
 
     function lookup_fields($table, $classname, $fields, $clause) {
