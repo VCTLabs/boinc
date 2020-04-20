@@ -20,25 +20,33 @@ require_once("../inc/boinc_db.inc");
 require_once("../inc/util.inc");
 require_once("../inc/user.inc");
 require_once("../inc/host.inc");
+require_once("../project/project.inc");
 
-check_get_args(array("hostid", "ipprivate"));
+db_init();
 
-BoincDb::get(true);
+error_reporting(E_ALL ^ E_WARNING);
+
+$user = get_logged_in_user();
+
+$db = BoincDb::get();
 
 $hostid = get_int("hostid");
 $ipprivate = get_str("ipprivate", true);
 $host = BoincHost::lookup_id($hostid);
+
 if (!$host) {
     error_page("No such computer");
 }
 
 $user = get_logged_in_user(false);
+
 if ($user && $user->id != $host->userid) {
     $user = null;
 }
 
 page_head(tra("Computer %1", $hostid));
 show_host($host, $user, $ipprivate);
+show_trigger($host->id,$heading, $host->userid == $user->id);
 page_tail();
 
 ?>
