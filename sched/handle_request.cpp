@@ -64,10 +64,11 @@
 #include "sched_customize.h"
 #include "time_stats_log.h"
 
-// QCN -- FIXME: another include hack
+// CMC -- need to include our trigger file from the qcn svn tree
 #include "../../qcn/server/trigger/qcn_trigger.h"
-// QCN end section
+// CMC end section
 
+//
 // are the 2 hosts obviously different computers?
 //
 static bool obviously_different(HOST& h1, HOST& h2) {
@@ -551,11 +552,7 @@ static int modify_host_struct(HOST& host) {
     strlcpy(host.serialnum, buf, sizeof(host.serialnum));
     strlcat(host.serialnum, buf2, sizeof(host.serialnum));
     if (strlen(g_request->host.virtualbox_version)) {
-        sprintf(buf2, "[vbox|%s|%d|%d]",
-            g_request->host.virtualbox_version,
-            (strstr(g_request->host.p_features, "vmx") || strstr(g_request->host.p_features, "svm"))?1:0,
-            g_request->host.p_vm_extensions_disabled?0:1
-        );
+        sprintf(buf2, "[vbox|%s]", g_request->host.virtualbox_version);
         strlcat(host.serialnum, buf2, sizeof(host.serialnum));
     }
     if (strcmp(host.last_ip_addr, g_request->host.last_ip_addr)) {
@@ -1080,8 +1077,8 @@ bool wrong_core_client_version() {
     return true;
 }
 
-// QCN here -- add host IP argument
-void handle_msgs_from_host(DB_QCN_HOST_IPADDR& qhip) { // QCN mod line
+//void handle_msgs_from_host() {
+void handle_msgs_from_host(DB_QCN_HOST_IPADDR& qhip) { // CMC mod line
     unsigned int i;
     DB_MSG_FROM_HOST mfh;
     int retval;
@@ -1099,7 +1096,7 @@ void handle_msgs_from_host(DB_QCN_HOST_IPADDR& qhip) { // QCN mod line
             "got msg from host; variety %s \n",
             mfh.variety
         );
-    // QCN here -- begin handle triggers via handle_qcn_trigger
+   // CMC here -- begin handle triggers via handle_qcn_trigger
         retval = 0;
         int iVariety = -1;
         if (!strcmp(mfh.variety, "trigger")) { // it's a trigger
@@ -1112,26 +1109,39 @@ void handle_msgs_from_host(DB_QCN_HOST_IPADDR& qhip) { // QCN mod line
             iVariety = 2;
         }
 
+	// this code has two options, one where the Variety is known (positive), and the other
+	// is an insert of the host structure sigh.. why?
+
+	// this code prints an error that indicates that the INSERT failed, not the
+	// other issue with the handle_qcn_trigger -- where we were just looking at.
+	// the error here should read "geo lookup blah" failed or whatever.
+
         if (iVariety > -1 ) { // it's a trigger
             retval = handle_qcn_trigger(&mfh, iVariety, qhip);
+            if (retval) {
+                log_messages.printf(MSG_CRITICAL,
+                    "[HOST#%lu] maxmind/geoip web server ip lookup returned error: %s\n",
+                        g_reply->host.id, iVariety, boincerror(retval)
+                );
+            }
         }
         else {
-            // not a real trigger or quakelist trickle, insert into msg_from_host table as usual
-            retval = mfh.insert(); // not a trigger and not a quakelist, process as normal (probably a "nosensor" msg)
-        }
-//        retval = mfh.insert();
-// QCN here -- end block for mfh insert
-        if (retval) {
-            log_messages.printf(MSG_CRITICAL,
-                "[HOST#%lu] message insert failed: %s\n",
-                g_reply->host.id, boincerror(retval)
-            );
-            g_reply->send_msg_ack = false;
+// CMC here - end block for mfh insert
+            // not a real trigger, ping, continual, or "quakelist trickle," insert into msg_from_host table as usual
+            retval = mfh.insert();
+            if (retval) {
+                log_messages.printf(MSG_CRITICAL,
+                    "[HOST#%lu] message insert failed: %s\n",
+                        g_reply->host.id, iVariety, boincerror(retval)
+                );
+            }
+	}
 
-            // may as well return; if one insert failed, others will too
-            //
-            return;
-        }
+        g_reply->send_msg_ack = false;
+
+        // may as well return; if one insert failed, others will too
+        //
+        return;
     }
 }
 
@@ -1194,13 +1204,13 @@ static inline bool requesting_work() {
     return false;
 }
 
-// QCN here -- add bool so we can bypass some things if it's a trigger trickle
+// CMC here -- added the bool below so we can bypass some things if it's a trigger trickle
 //void process_request(char* code_sign_key) {
 void process_request(
     char* code_sign_key, bool bTrigger, DB_QCN_HOST_IPADDR& qhip
 ) {
 //    SCHEDULER_REQUEST& sreq, SCHEDULER_REPLY& reply, char* code_sign_key, bool bTrigger
-// QCN end new declaration of process_request
+// CMC end new declaration of process_request
     PLATFORM* platform;
     int retval;
     double last_rpc_time, x;
@@ -1348,7 +1358,14 @@ void process_request(
     g_request->last_rpc_dayofyear = rpc_time_tm->tm_yday;
 
     t = time(0);
+
+    // update the rpc_time of the host 
+    // regardless of what variety of request
+    // we're processing, as we need to know
+    // that the host is still "ALIVE"
+
     g_reply->host.rpc_time = t;
+
     t += (time_t)x;
     rpc_time_tm = localtime(&t);
     g_request->current_rpc_dayofyear = rpc_time_tm->tm_yday;
@@ -1471,19 +1488,10 @@ void process_request(
         }
     }
 
-    handle_msgs_from_host(qhip); // QCN mod line
+
+    handle_msgs_from_host(qhip); // CMC mod line
     if (config.msg_to_host) {
         handle_msgs_to_host();
-    }
-
-    // compute GPU params
-    //
-    g_reply->host.p_ngpus = 0;
-    g_reply->host.p_gpu_fpops = 0;
-    for (int j=1; j<g_request->coprocs.n_rsc; j++) {
-        int n = g_request->coprocs.coprocs[j].count;
-        g_reply->host.p_ngpus += n;
-        g_reply->host.p_gpu_fpops += n*g_request->coprocs.coprocs[j].peak_flops;
     }
 
     update_host_record(initial_host, g_reply->host, g_reply->user);
@@ -1528,10 +1536,10 @@ void handle_request(FILE* fin, FILE* fout, char* code_sign_key) {
     SCHEDULER_REPLY sreply;
     char buf[1024];
 
-    // QCN here -- on trigger trickles, bypass trickle down's and quake/project_prefs etc
+    // CMC here mod -- on trigger trickles, bypass trickle down's & quake/project_prefs etc
     bool bTrigger = false;
     DB_QCN_HOST_IPADDR qhip;
-    // QCN end
+    // CMC end
 
     g_request = &sreq;
     g_reply = &sreply;
@@ -1546,8 +1554,9 @@ void handle_request(FILE* fin, FILE* fout, char* code_sign_key) {
     mf.init_file(fin);
     const char* p = sreq.parse(xp);
     double start_time = dtime();
+
     if (!p){
-       // QCN here -- sreq has been parsed, see if contains a trigger
+       // CMC here -- sreq has been parsed, see if contains a trigger
          //  loop through the msg_from_host vector and see that all entries are variety "trigger"
          //  IFF all entries are "trigger" should we bypass (i.e. may be part of another msg)
          unsigned int iTrigger = 0, iCount = 0;
@@ -1572,8 +1581,8 @@ void handle_request(FILE* fin, FILE* fout, char* code_sign_key) {
          bTrigger = (bool) (iTrigger > 0 && iTrigger == iCount); // note all trickles must be triggers, and must have 1 trickle at least!
 
         process_request(code_sign_key, bTrigger, qhip);
-         // QCN end section
-       //  QCN end block handle_request/process_request
+         // CMC end section
+       //  CMC end block handle_request/process_request
 
         if ((config.locality_scheduling || config.locality_scheduler_fraction) && !sreply.nucleus_only) {
             send_file_deletes();
@@ -1588,10 +1597,10 @@ void handle_request(FILE* fin, FILE* fout, char* code_sign_key) {
         log_user_messages();
     }
 
-  // QCN here -- next line to send a new param to SCHEDULER_REPLY::write e.g. to bypass quake list for project prefs etc
+  // CMC here -- next line to send a new param to SCHEDULER_REPLY::write e.g. to bypass quake list for project prefs etc
      sreply.write(fout, sreq, bTrigger, qhip);
      //sreply.write(fout, sreq);
-  // QCN end
+  // CMC end
 
     log_messages.printf(MSG_NORMAL,
         "Scheduler ran %.3f seconds\n", dtime()-start_time
